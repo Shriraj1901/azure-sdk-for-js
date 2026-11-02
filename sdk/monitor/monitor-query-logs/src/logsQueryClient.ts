@@ -18,6 +18,15 @@ import type { LogsQueryResult } from "./models/public.js";
 export type { LogsQueryClientOptions } from "./api/monitorQueryLogsContext.js";
 
 /**
+ * Builds the token scope for an audience. Both the bare audience
+ * (e.g. `https://api.loganalytics.us`) and the scope form
+ * (e.g. `https://api.loganalytics.us/.default`) are accepted.
+ */
+function audienceToScope(audience: string): string {
+  return audience.endsWith("/.default") ? audience : `${audience.replace(/\/+$/, "")}/.default`;
+}
+
+/**
  * Converts LogsQueryOptions to internal option format
  */
 function convertToInternalOptions(options?: LogsQueryOptions): {
@@ -69,8 +78,12 @@ export class LogsQueryClient {
     const userAgentPrefix = prefixFromOptions
       ? `${prefixFromOptions} azsdk-js-client`
       : `azsdk-js-client`;
+    const scopes =
+      options.credentials?.scopes ??
+      (options.audience ? [audienceToScope(options.audience)] : undefined);
     this._client = createMonitorQueryLogs(tokenCredential, {
       ...options,
+      ...(scopes ? { credentials: { ...options.credentials, scopes } } : {}),
       userAgentOptions: { userAgentPrefix },
     });
     this.pipeline = this._client.pipeline;
